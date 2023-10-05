@@ -39,6 +39,21 @@ services:
       SPRING_SECURITY_USER_NAME: admin
       SPRING_SECURITY_USER_PASSWORD: kafkauipassword
       DYNAMIC_CONFIG_ENABLED: 'true'
+  redis:
+    container_name: redis
+    image: "bitnami/redis:latest"
+    ports:
+      - "6379:6379"
+    volumes:
+      - type: volume
+        source: redis_standalone_data
+        target: /bitnami/redis/data
+        read_only: false
+    environment:
+      - REDIS_PASSWORD=password123
+      - REDIS_AOF_ENABLED=no
 volumes:
   kafka_standalone_data:
+    driver: local
+  redis_standalone_data:
     driver: local
