@@ -1,5 +1,7 @@
 package com.message.common.entity;
 
+import com.message.common.enums.MessageFailedPhrase;
+import com.message.common.enums.MessageType;
 import java.time.LocalDateTime;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -32,18 +34,24 @@ public class MessageFailedEntity {
     private String messageContentJsonFormat;
     
     /**
-     * 消息生成者
-     * BUSINESS_SERVER 表示业务系统
-     * MESSAGE_SERVER 表示消息系统
+     * 消息类型
+     * EMAIL 表示此消息为邮件
+     * EMAIL_CALLBACK 表示此消息为邮件回调
+     *
      */
-    private String messageGenerator;
+    private MessageType messageType;
     
     /**
      * 消息失败的阶段:
      * PRODUCER 表示在生产者发送消息的时候失败
      * CONSUMER 表示在消费者消费消息的时候失败
      */
-    private String failedPhrases;
+    private MessageFailedPhrase messageFailedPhrase;
+    
+    /**
+     * 失败时的异常堆栈信息
+     */
+    private String failedReason;
     
     /**
      * 消息重试次数
