@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,6 +18,7 @@ import lombok.Setter;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Builder
 @JsonDeserialize(builder = UserDTO.UserDTOBuilder.class)
+@EqualsAndHashCode(of = {"messageId"})
 public class UserDTO {
     
     @JsonProperty("messageId")
@@ -27,4 +29,7 @@ public class UserDTO {
     
     @JsonProperty("password")
     private String password;
+
+    @JsonProperty("callbackMetaData")
+    private CallbackMetaData callbackMetaData;
 }

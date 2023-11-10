@@ -6,6 +6,11 @@
          version="6.0">
   <display-name>Kafka消息的消费者-消息系统</display-name>
 
+<!--  listener的contextInitialized顺序按照声明顺序执行, contextDestroyed方法按照声明顺序反向执行-->
+  <listener>
+    <listener-class>com.message.server.listener.KafkaListener</listener-class>
+  </listener>
+
   <listener>
     <listener-class>com.message.server.listener.StartUpConsumerListener</listener-class>
   </listener>

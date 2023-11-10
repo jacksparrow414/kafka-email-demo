@@ -19,4 +19,9 @@ public class MessageAckConsumesSuccessService {
         // execute sql to get messageIds from database
         return new HashSet<>();
     }
+    
+    public void insertMessageIds(Set<String> messageIds) {
+        String sql = "insert into message_ack_consumes_success (message_id) value (), (), ()....";
+    }
+    
 }

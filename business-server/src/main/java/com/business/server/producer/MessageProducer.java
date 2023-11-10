@@ -1,4 +1,4 @@
-package com.message.server.producer;
+package com.business.server.producer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.config.KafkaConfiguration;
@@ -19,48 +19,54 @@ import org.apache.kafka.common.errors.TimeoutException;
 
 /**
  * @author jacksparrow414
- * @date 2023/10/28
- *
- * 负责重新发送失败的消息， 失败的消息可能在发送时失败， 也可能在消费时失败
+ * @date 2023/10/14
  */
 @Log
-public class MessageFailedProducer {
+public class MessageProducer {
     
     public static final KafkaProducer<String, UserDTO> PRODUCER = new KafkaProducer<>(KafkaConfiguration.loadProducerConfig(UserDTOSerializer.class.getName()));
     
     private MessageFailedService messageFailedService = new MessageFailedService();
-    
-    public void sendMessage(final UserDTO userDTO, MessageFailedPhrase messageFailedPhrase) {
-        ProducerRecord<String, UserDTO> user = new ProducerRecord<>("user", userDTO.getUserName(),  userDTO);
+
+    /**
+     * kafka producer 发送失败时会进行重试，相关参数 retries 和 delivery.timeout.ms, 官方建议使用delivery.timeout.ms，默认2分钟
+     * 也就是说在2分钟之后，下列代码中的回调函数会被调用，重试多少次回调函数就会被调用多少次，所以我们在重试期间只要保存一次失败的消息就好，如果在重试期间成功，则去更新
+     * @param userDTO
+     */
+    public void sendMessage(final UserDTO userDTO) {
+        ProducerRecord<String, UserDTO> user = new ProducerRecord<>("email", userDTO.getMessageId(),  userDTO);
         try {
             PRODUCER.send( user, (recordMetadata, e) -> {
                 Set<String> messageFailedSet = new HashSet<>();
                 if (Objects.nonNull(e)) {
-                    log.finest("message has resent failed");
+                    log.finest("message has sent failed");
                     // 应该只保存一次，不应该每次都保存
                     if (messageFailedSet.isEmpty()) {
-                        saveOrUpdateFailedMessage(userDTO, messageFailedPhrase);
+                        saveOrUpdateFailedMessage(userDTO);
                         messageFailedSet.add(userDTO.getMessageId());
                     }
                 }else {
-                    log.info("message has resent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
-                    saveOrUpdateFailedMessage(userDTO, messageFailedPhrase);
+                    log.info("message has sent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
+                    saveOrUpdateFailedMessage(userDTO);
                 }
             });
-        }catch (TimeoutException e) {
+        } catch (TimeoutException e) {
             log.info("send message to kafka timeout, message: ");
             // TODO: 自定义逻辑，比如发邮件通知kafka管理员
         }
     }
     
+    /**
+     * @param userDTO
+     */
     @SneakyThrows
-    private void saveOrUpdateFailedMessage(final UserDTO userDTO, MessageFailedPhrase messageFailedPhrase) {
+    private void saveOrUpdateFailedMessage(final UserDTO userDTO) {
         MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
         messageFailedEntity.setMessageId(userDTO.getMessageId());
         ObjectMapper mapper = new ObjectMapper();
         messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(userDTO));
         messageFailedEntity.setMessageType(MessageType.EMAIL);
-        messageFailedEntity.setMessageFailedPhrase(messageFailedPhrase);
+        messageFailedEntity.setMessageFailedPhrase(MessageFailedPhrase.PRODUCER);
         messageFailedService.saveOrUpdateMessageFailed(messageFailedEntity);
     }
 }

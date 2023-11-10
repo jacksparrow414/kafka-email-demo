@@ -1,6 +1,6 @@
-package com.bussiness.server.servlet;
+package com.business.server.servlet;
 
-import com.bussiness.server.producer.MessageProducer;
+import com.business.server.producer.MessageProducer;
 import com.message.common.dto.UserDTO;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;

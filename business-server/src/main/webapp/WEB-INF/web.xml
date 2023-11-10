@@ -5,4 +5,12 @@
                       https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
          version="6.0">
   <display-name>Kafka消息的生产者-业务系统</display-name>
+
+  <listener>
+    <listener-class>com.business.server.listener.KafkaListener</listener-class>
+  </listener>
+  
+  <listener>
+    <listener-class>com.business.server.listener.StartUpCallbackConsumerListener</listener-class>
+  </listener>
 </web-app>
