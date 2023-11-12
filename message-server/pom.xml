@@ -8,7 +8,7 @@
     <version>1.0-SNAPSHOT</version>
     <artifactId>kafka</artifactId>
   </parent>
-  <artifactId>message-consumer</artifactId>
+  <artifactId>message-server</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>war</packaging>
 

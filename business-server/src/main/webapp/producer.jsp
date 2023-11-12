@@ -13,8 +13,8 @@
 </head>
 <body>
 <form action="producerMessage" method="post">
-    <input type="text" name="username">
-    <input type="text" name="password">
+   用户名: <input type="text" name="username"> <br>
+    密 码: <input type="text" name="password"> <br>
     <input type="submit" value="发送消息">
 </form>
 </body>
