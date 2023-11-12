@@ -1,9 +1,8 @@
 package com.message.common.config;
 
+import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
-
-import java.util.Properties;
 
 /**
  * @author jacksparrow414
@@ -13,11 +12,12 @@ public class KafkaConfiguration {
 
     /**
      * 以下配置建议搭配 官方文档 + kafka权威指南相关章节 + 实际业务场景吞吐量需求 自己调整
+     * 如果是本地， IP地址和docker-compose.yml中的EXTERNAL保持一致
      * @return
      */
     public static Properties loadProducerConfig(String valueSerializer) {
         Properties result = new Properties();
-        result.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        result.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "192.168.0.102:9093");
         result.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         result.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer);
         result.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "gzip");
@@ -49,12 +49,12 @@ public class KafkaConfiguration {
      */
     public static Properties loadConsumerConfig(int groupInstanceId, String valueDeserializer) {
         Properties result = new Properties();
-        result.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        result.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        result.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "192.168.0.102:9093");
+        result.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         result.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer);
         result.put(ConsumerConfig.GROUP_ID_CONFIG, "test");
         // 代表此消费者是消费者组的static member
-        result.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, groupInstanceId);
+        result.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, "test-" + ++groupInstanceId);
         // 修改heartbeat.interval.ms和session.timeout.ms的值，和group.instance.id配合使用，避免重启或重启时间过长的时候，触发rebalance
         result.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 1000 * 60);
         result.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 1000 * 60 * 5);

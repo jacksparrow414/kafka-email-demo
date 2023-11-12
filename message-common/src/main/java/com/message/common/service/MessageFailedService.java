@@ -30,7 +30,7 @@ public class MessageFailedService {
      * @param messageFailedEntity 消息失败的记录
      */
     public void saveOrUpdateMessageFailed(final MessageFailedEntity messageFailedEntity) {
-        List<MessageFailedEntity> messageFailedEntities = queryMessageFailedByMessageIds(Collections.singletonList(messageFailedEntity.getMessageId()), messageFailedEntity.getMessageFailedPhrase());
+        List<MessageFailedEntity> messageFailedEntities = queryMessageFailedByMessageIds(Collections.singletonList(messageFailedEntity.getMessageId()), messageFailedEntity.getMessageFailedPhrase().toString());
         if (messageFailedEntities.isEmpty()) {
             // execute sql to save messageFailedEntity to database
             String insertSql = "insert into message_failed(message_id, message_content_json_format, message_generator, failed_phrases, retry_count, retry_status) values(?, ?, ?, ?, ?, ?)";

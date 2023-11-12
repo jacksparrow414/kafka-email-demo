@@ -36,10 +36,10 @@ public class MessageProducer {
     public void sendMessage(final UserDTO userDTO) {
         ProducerRecord<String, UserDTO> user = new ProducerRecord<>("email", userDTO.getMessageId(),  userDTO);
         try {
+            Set<String> messageFailedSet = new HashSet<>();
             PRODUCER.send( user, (recordMetadata, e) -> {
-                Set<String> messageFailedSet = new HashSet<>();
                 if (Objects.nonNull(e)) {
-                    log.finest("message has sent failed");
+                    log.severe("message has sent failed");
                     // 应该只保存一次，不应该每次都保存
                     if (messageFailedSet.isEmpty()) {
                         saveOrUpdateFailedMessage(userDTO);
