@@ -1,5 +1,6 @@
 package com.business.server.producer;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.config.KafkaConfiguration;
 import com.message.common.dto.UserDTO;
@@ -8,10 +9,7 @@ import com.message.common.enums.MessageFailedPhrase;
 import com.message.common.enums.MessageType;
 import com.message.common.serializer.UserDTOSerializer;
 import com.message.common.service.MessageFailedService;
-import java.util.HashSet;
 import java.util.Objects;
-import java.util.Set;
-import lombok.SneakyThrows;
 import lombok.extern.java.Log;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -30,43 +28,37 @@ public class MessageProducer {
 
     /**
      * kafka producer 发送失败时会进行重试，相关参数 retries 和 delivery.timeout.ms, 官方建议使用delivery.timeout.ms，默认2分钟
-     * 也就是说在2分钟之后，下列代码中的回调函数会被调用，重试多少次回调函数就会被调用多少次，所以我们在重试期间只要保存一次失败的消息就好，如果在重试期间成功，则去更新
+     * callback函数只有在最后一次重试之后才会调用， 详情可以看https://lists.apache.org/thread/nwg326bxpo7ry116nqhxmsmc3bokc6hm
      * @param userDTO
      */
     public void sendMessage(final UserDTO userDTO) {
         ProducerRecord<String, UserDTO> user = new ProducerRecord<>("email", userDTO.getMessageId(),  userDTO);
         try {
-            Set<String> messageFailedSet = new HashSet<>();
             PRODUCER.send( user, (recordMetadata, e) -> {
                 if (Objects.nonNull(e)) {
                     log.severe("message has sent failed");
-                    // 应该只保存一次，不应该每次都保存
-                    if (messageFailedSet.isEmpty()) {
-                        saveOrUpdateFailedMessage(userDTO);
-                        messageFailedSet.add(userDTO.getMessageId());
+                    MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
+                    messageFailedEntity.setMessageId(userDTO.getMessageId());
+                    ObjectMapper mapper = new ObjectMapper();
+                    try {
+                        messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(userDTO));
+                    } catch (JsonProcessingException jsonProcessingException) {
+                        log.severe("message content json format failed");
                     }
-                }else {
+                    messageFailedEntity.setMessageType(MessageType.EMAIL);
+                    messageFailedEntity.setMessageFailedPhrase(MessageFailedPhrase.PRODUCER);
+                    messageFailedEntity.setFailedReason(e.getMessage());
+                    // 如果sendMessage传进来的是个list，也同理，不能放到list.foreach外面
+                    // 如果放在主线程里，由于kafka producer是异步的，
+                    // kafka producer的执行速度可能慢于主线程，可能拿到的值是空的是有问题的，例如拿到的failedReason是空的
+                    messageFailedService.saveOrUpdateMessageFailed(messageFailedEntity);
+                } else {
                     log.info("message has sent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
-                    saveOrUpdateFailedMessage(userDTO);
                 }
             });
         } catch (TimeoutException e) {
             log.info("send message to kafka timeout, message: ");
             // TODO: 自定义逻辑，比如发邮件通知kafka管理员
         }
-    }
-    
-    /**
-     * @param userDTO
-     */
-    @SneakyThrows
-    private void saveOrUpdateFailedMessage(final UserDTO userDTO) {
-        MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
-        messageFailedEntity.setMessageId(userDTO.getMessageId());
-        ObjectMapper mapper = new ObjectMapper();
-        messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(userDTO));
-        messageFailedEntity.setMessageType(MessageType.EMAIL);
-        messageFailedEntity.setMessageFailedPhrase(MessageFailedPhrase.PRODUCER);
-        messageFailedService.saveOrUpdateMessageFailed(messageFailedEntity);
     }
 }
