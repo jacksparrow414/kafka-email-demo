@@ -60,6 +60,13 @@ public class KafkaConfiguration {
         result.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 1000 * 60 * 5);
         // 关闭自动提交
         result.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, Boolean.FALSE);
+        // 默认1MB，增加吞吐量，其设置对应的是每个分区，也就是说一个分区返回10MB的数据
+        result.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, 1048576 * 10);
+        result.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 500);
+        // 返回全部数据的大小
+        result.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, 1048576 * 100);
+        // 默认5分钟
+        result.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 1000 * 60 * 5);
         return result;
     }
 }

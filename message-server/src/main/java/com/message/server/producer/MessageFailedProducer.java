@@ -22,6 +22,7 @@ import org.apache.kafka.common.errors.TimeoutException;
  * @date 2023/10/28
  *
  * 负责重新发送失败的消息， 失败的消息可能在发送时失败， 也可能在消费时失败
+ * 无论是发送失败还是消费失败，都会将消息再次发送到kafka中
  */
 @Log
 public class MessageFailedProducer {
@@ -34,17 +35,12 @@ public class MessageFailedProducer {
         ProducerRecord<String, UserDTO> user = new ProducerRecord<>("user", userDTO.getUserName(),  userDTO);
         try {
             PRODUCER.send( user, (recordMetadata, e) -> {
-                Set<String> messageFailedSet = new HashSet<>();
                 if (Objects.nonNull(e)) {
                     log.finest("message has resent failed");
-                    // 应该只保存一次，不应该每次都保存
-                    if (messageFailedSet.isEmpty()) {
-                        saveOrUpdateFailedMessage(userDTO, messageFailedPhrase);
-                        messageFailedSet.add(userDTO.getMessageId());
-                    }
+                    saveOrUpdateFailedMessage(userDTO, 0, messageFailedPhrase);
                 }else {
                     log.info("message has resent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
-                    saveOrUpdateFailedMessage(userDTO, messageFailedPhrase);
+                    saveOrUpdateFailedMessage(userDTO, 1, messageFailedPhrase);
                 }
             });
         }catch (TimeoutException e) {
@@ -54,13 +50,14 @@ public class MessageFailedProducer {
     }
     
     @SneakyThrows
-    private void saveOrUpdateFailedMessage(final UserDTO userDTO, MessageFailedPhrase messageFailedPhrase) {
+    private void saveOrUpdateFailedMessage(final UserDTO userDTO, Integer retryStatus,MessageFailedPhrase messageFailedPhrase) {
         MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
         messageFailedEntity.setMessageId(userDTO.getMessageId());
         ObjectMapper mapper = new ObjectMapper();
         messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(userDTO));
         messageFailedEntity.setMessageType(MessageType.EMAIL);
         messageFailedEntity.setMessageFailedPhrase(messageFailedPhrase);
+        messageFailedEntity.setRetryStatus(retryStatus);
         messageFailedService.saveOrUpdateMessageFailed(messageFailedEntity);
     }
 }
