@@ -38,6 +38,7 @@ public class MessageFailedService {
             // execute sql to update messageFailedEntity to database
             messageFailedEntities.forEach(each -> {
                 Long id = each.getId();
+                Integer retryStatus = each.getRetryStatus();
                 String updateSql = "update message_failed set retry_count = retry_count + 1, retry_status = ? where id = ? and message_id = ? and last_update_time = ?";
             });
         }
