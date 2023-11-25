@@ -5,9 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.dto.CallbackMetaData;
 import com.message.common.service.MessageAckConsumesSuccessService;
 import com.message.common.service.MessageFailedService;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.java.Log;
+import org.apache.commons.lang3.reflect.MethodUtils;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 @Log
@@ -37,6 +40,21 @@ public class CallbackConsumerRunner implements Runnable{
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         // TODO 不再补充类似的代码， 自己完成
+
+        while (!closed.get()) {
+            ConsumerRecords<String, CallbackMetaData> records = consumer.poll(Duration.ofSeconds(10));
+            records.forEach(each -> {
+                Class<?> destClass;
+                try {
+                    //        核心消费代码, 通过反射调用目标方法
+                    destClass = Class.forName(each.value().getClassName());
+                    Object instance = objectMapper.readValue(each.value().getInstanceJsonStr(), destClass);
+                    MethodUtils.invokeMethod(instance, true, each.value().getMethodName(), each.value().getArguments());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
     }
     
     public void shutdown() {

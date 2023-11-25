@@ -8,6 +8,7 @@ import com.message.common.enums.MessageFailedPhrase;
 import com.message.common.enums.MessageType;
 import com.message.common.serializer.CallbackMetaDataSerializer;
 import com.message.common.service.MessageFailedService;
+import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -36,9 +37,11 @@ public class CallbackProducer {
      * 一条消息可能在发送到kafka时失败，也可能在发送到kafka成功，但是在消费端消费失败，所以这里需要传递messageFailedPhrase参数
      * @param callbackMetaData
      */
+    @SneakyThrows
     public void sendCallbackMessage(CallbackMetaData callbackMetaData, MessageFailedPhrase messageFailedPhrase) {
-    
-        ProducerRecord<String, CallbackMetaData> callbackRecord = new ProducerRecord<>("callback", callbackMetaData.getMessageId(),  callbackMetaData);
+        String hostName = InetAddress.getLocalHost().getHostName();
+        //        call topic应该是每个服务器对应一个topic
+        ProducerRecord<String, CallbackMetaData> callbackRecord = new ProducerRecord<>("callback" + hostName, callbackMetaData.getMessageId(),  callbackMetaData);
         try {
             CALLBACK_META_DATA_PRODUCER.send( callbackRecord, (recordMetadata, e) -> {
                 Set<String> messageFailedSet = new HashSet<>();
