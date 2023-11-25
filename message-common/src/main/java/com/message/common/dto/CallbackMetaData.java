@@ -17,7 +17,10 @@ public class CallbackMetaData implements Serializable {
 
     @JsonProperty("id")
     private String messageId;
-
+    
+    /**
+     * 应该是hostName, InetAddress.getLocalHost().getHostName()
+     */
     @JsonProperty("serverId")
     private String serverId;
 
