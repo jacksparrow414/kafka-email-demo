@@ -13,6 +13,7 @@ public class KafkaConfiguration {
     /**
      * 以下配置建议搭配 官方文档 + kafka权威指南相关章节 + 实际业务场景吞吐量需求 自己调整
      * 如果是本地， IP地址和docker-compose.yml中的EXTERNAL保持一致
+     * 压缩类型官方建议选lz4, https://www.confluent.io/blog/apache-kafka-message-compression/
      * @return
      */
     public static Properties loadProducerConfig(String valueSerializer) {
@@ -20,7 +21,7 @@ public class KafkaConfiguration {
         result.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "192.168.0.102:9093");
         result.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         result.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer);
-        result.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "gzip");
+        result.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
         // 每封邮件消息大小大约20KB, 使用默认配置吞吐量不高，下列配置增加kafka的吞吐量
         // 默认16384 bytes，太小了，这会导致邮件消息一个一个发送到kafka，达不到批量发送的目的，不符合发送邮件的场景
         result.put(ProducerConfig.BATCH_SIZE_CONFIG, 1048576 * 10);
