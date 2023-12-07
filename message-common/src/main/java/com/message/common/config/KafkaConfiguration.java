@@ -1,8 +1,14 @@
 package com.message.common.config;
 
+import io.confluent.kafka.serializers.KafkaJsonDeserializer;
+import io.confluent.kafka.serializers.KafkaJsonDeserializerConfig;
+import io.confluent.kafka.serializers.KafkaJsonSerializer;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.record.CompressionType;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 
 /**
  * @author jacksparrow414
@@ -16,12 +22,12 @@ public class KafkaConfiguration {
      * 压缩类型官方建议选lz4, https://www.confluent.io/blog/apache-kafka-message-compression/
      * @return
      */
-    public static Properties loadProducerConfig(String valueSerializer) {
+    public static Properties loadProducerConfig() {
         Properties result = new Properties();
         result.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "192.168.0.102:9093");
-        result.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        result.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer);
-        result.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4");
+        result.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        result.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSerializer.class.getName());
+        result.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, CompressionType.LZ4.name);
         // 每封邮件消息大小大约20KB, 使用默认配置吞吐量不高，下列配置增加kafka的吞吐量
         // 默认16384 bytes，太小了，这会导致邮件消息一个一个发送到kafka，达不到批量发送的目的，不符合发送邮件的场景
         result.put(ProducerConfig.BATCH_SIZE_CONFIG, 1048576 * 10);
@@ -48,11 +54,12 @@ public class KafkaConfiguration {
      * @param groupInstanceId
      * @return
      */
-    public static Properties loadConsumerConfig(int groupInstanceId, String valueDeserializer) {
+    public static Properties loadConsumerConfig(int groupInstanceId, String valueType) {
         Properties result = new Properties();
         result.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "192.168.0.102:9093");
-        result.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        result.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer);
+        result.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        result.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaJsonDeserializer.class.getName());
+        result.put(KafkaJsonDeserializerConfig.JSON_VALUE_TYPE, valueType);
         result.put(ConsumerConfig.GROUP_ID_CONFIG, "test");
         // 代表此消费者是消费者组的static member
         result.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, "test-" + ++groupInstanceId);

@@ -7,7 +7,6 @@ import com.message.common.dto.UserDTO;
 import com.message.common.entity.MessageFailedEntity;
 import com.message.common.enums.MessageFailedPhrase;
 import com.message.common.enums.MessageType;
-import com.message.common.serializer.UserDTOSerializer;
 import com.message.common.service.MessageFailedService;
 import java.util.Objects;
 import lombok.extern.java.Log;
@@ -22,7 +21,7 @@ import org.apache.kafka.common.errors.TimeoutException;
 @Log
 public class MessageProducer {
     
-    public static final KafkaProducer<String, UserDTO> PRODUCER = new KafkaProducer<>(KafkaConfiguration.loadProducerConfig(UserDTOSerializer.class.getName()));
+    public static final KafkaProducer<String, UserDTO> PRODUCER = new KafkaProducer<>(KafkaConfiguration.loadProducerConfig());
     
     private MessageFailedService messageFailedService = new MessageFailedService();
 
