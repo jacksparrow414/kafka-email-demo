@@ -6,7 +6,6 @@ import com.message.common.dto.CallbackMetaData;
 import com.message.common.entity.MessageFailedEntity;
 import com.message.common.enums.MessageFailedPhrase;
 import com.message.common.enums.MessageType;
-import com.message.common.serializer.CallbackMetaDataSerializer;
 import com.message.common.service.MessageFailedService;
 import java.net.InetAddress;
 import java.util.HashSet;
@@ -28,7 +27,7 @@ import org.apache.kafka.common.errors.TimeoutException;
 @Log
 public class CallbackProducer {
     
-    public static final Producer<String, CallbackMetaData> CALLBACK_META_DATA_PRODUCER = new KafkaProducer<>(KafkaConfiguration.loadProducerConfig(CallbackMetaDataSerializer.class.getName()));
+    public static final Producer<String, CallbackMetaData> CALLBACK_META_DATA_PRODUCER = new KafkaProducer<>(KafkaConfiguration.loadProducerConfig());
     
     private MessageFailedService messageFailedService = new MessageFailedService();
     
