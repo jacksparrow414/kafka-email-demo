@@ -1,6 +1,6 @@
 package com.message.common.entity;
 
-import com.message.common.enums.MessageFailedPhrase;
+import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import java.time.LocalDateTime;
 import lombok.EqualsAndHashCode;
@@ -46,7 +46,7 @@ public class MessageFailedEntity {
      * PRODUCER 表示在生产者发送消息的时候失败
      * CONSUMER 表示在消费者消费消息的时候失败
      */
-    private MessageFailedPhrase messageFailedPhrase;
+    private MessageFailedPhase messageFailedPhase;
     
     /**
      * 失败时的异常堆栈信息

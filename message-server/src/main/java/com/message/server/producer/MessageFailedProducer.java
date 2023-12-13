@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.config.KafkaConfiguration;
 import com.message.common.dto.UserDTO;
 import com.message.common.entity.MessageFailedEntity;
-import com.message.common.enums.MessageFailedPhrase;
+import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageFailedService;
 import java.util.Objects;
@@ -28,16 +28,16 @@ public class MessageFailedProducer {
     
     private MessageFailedService messageFailedService = new MessageFailedService();
     
-    public void sendMessage(final UserDTO userDTO, MessageFailedPhrase messageFailedPhrase) {
+    public void sendMessage(final UserDTO userDTO, MessageFailedPhase messageFailedPhase) {
         ProducerRecord<String, UserDTO> user = new ProducerRecord<>("user", userDTO.getUserName(),  userDTO);
         try {
             PRODUCER.send( user, (recordMetadata, e) -> {
                 if (Objects.nonNull(e)) {
                     log.finest("message has resent failed");
-                    saveOrUpdateFailedMessage(userDTO, 0, messageFailedPhrase);
+                    saveOrUpdateFailedMessage(userDTO, 0, messageFailedPhase);
                 }else {
                     log.info("message has resent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
-                    saveOrUpdateFailedMessage(userDTO, 1, messageFailedPhrase);
+                    saveOrUpdateFailedMessage(userDTO, 1, messageFailedPhase);
                 }
             });
         }catch (TimeoutException e) {
@@ -47,13 +47,13 @@ public class MessageFailedProducer {
     }
     
     @SneakyThrows
-    private void saveOrUpdateFailedMessage(final UserDTO userDTO, Integer retryStatus,MessageFailedPhrase messageFailedPhrase) {
+    private void saveOrUpdateFailedMessage(final UserDTO userDTO, Integer retryStatus, MessageFailedPhase messageFailedPhase) {
         MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
         messageFailedEntity.setMessageId(userDTO.getMessageId());
         ObjectMapper mapper = new ObjectMapper();
         messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(userDTO));
         messageFailedEntity.setMessageType(MessageType.EMAIL);
-        messageFailedEntity.setMessageFailedPhrase(messageFailedPhrase);
+        messageFailedEntity.setMessageFailedPhase(messageFailedPhase);
         messageFailedEntity.setRetryStatus(retryStatus);
         messageFailedService.saveOrUpdateMessageFailed(messageFailedEntity);
     }

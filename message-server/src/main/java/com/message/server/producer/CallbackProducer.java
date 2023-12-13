@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.config.KafkaConfiguration;
 import com.message.common.dto.CallbackMetaData;
 import com.message.common.entity.MessageFailedEntity;
-import com.message.common.enums.MessageFailedPhrase;
+import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageFailedService;
 import java.net.InetAddress;
@@ -37,7 +37,7 @@ public class CallbackProducer {
      * @param callbackMetaData
      */
     @SneakyThrows
-    public void sendCallbackMessage(CallbackMetaData callbackMetaData, MessageFailedPhrase messageFailedPhrase) {
+    public void sendCallbackMessage(CallbackMetaData callbackMetaData, MessageFailedPhase messageFailedPhase) {
         String hostName = InetAddress.getLocalHost().getHostName();
         //        call topic应该是每个服务器对应一个topic
         ProducerRecord<String, CallbackMetaData> callbackRecord = new ProducerRecord<>("callback" + hostName, callbackMetaData.getMessageId(),  callbackMetaData);
@@ -48,12 +48,12 @@ public class CallbackProducer {
                     log.finest("message has sent failed");
                     // 应该只保存一次，不应该每次都保存
                     if (messageFailedSet.isEmpty()) {
-                        saveOrUpdateFailedMessage(callbackMetaData, messageFailedPhrase);
+                        saveOrUpdateFailedMessage(callbackMetaData, messageFailedPhase);
                         messageFailedSet.add(callbackMetaData.getMessageId());
                     }
                 }else {
                     log.info("message has sent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
-                    saveOrUpdateFailedMessage(callbackMetaData, messageFailedPhrase);
+                    saveOrUpdateFailedMessage(callbackMetaData, messageFailedPhase);
                 }
             });
         } catch (TimeoutException e) {
@@ -66,13 +66,13 @@ public class CallbackProducer {
      * @param callbackMetaData
      */
     @SneakyThrows
-    private void saveOrUpdateFailedMessage(final CallbackMetaData callbackMetaData, MessageFailedPhrase messageFailedPhrase) {
+    private void saveOrUpdateFailedMessage(final CallbackMetaData callbackMetaData, MessageFailedPhase messageFailedPhase) {
         MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
         messageFailedEntity.setMessageId(callbackMetaData.getMessageId());
         ObjectMapper mapper = new ObjectMapper();
         messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(callbackMetaData));
         messageFailedEntity.setMessageType(MessageType.EMAIL_CALLBACK);
-        messageFailedEntity.setMessageFailedPhrase(messageFailedPhrase);
+        messageFailedEntity.setMessageFailedPhase(messageFailedPhase);
         messageFailedService.saveOrUpdateMessageFailed(messageFailedEntity);
     }
 }

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.dto.UserDTO;
 import com.message.common.entity.MessageFailedEntity;
-import com.message.common.enums.MessageFailedPhrase;
+import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageAckConsumesSuccessService;
 import com.message.common.service.MessageFailedService;
@@ -163,7 +163,7 @@ public class MessageConsumerRunner implements Runnable {
                     if (Objects.nonNull(item.getCallbackMetaData())) {
                         // do callback
                         CallbackProducer callbackProducer = new CallbackProducer();
-                        callbackProducer.sendCallbackMessage(item.getCallbackMetaData(), MessageFailedPhrase.PRODUCER);
+                        callbackProducer.sendCallbackMessage(item.getCallbackMetaData(), MessageFailedPhase.PRODUCER);
                     }
                 });
             }
@@ -173,7 +173,7 @@ public class MessageConsumerRunner implements Runnable {
                     MessageFailedEntity entity = new MessageFailedEntity();
                     entity.setMessageId(item.getMessageId());
                     entity.setMessageType(MessageType.EMAIL);
-                    entity.setMessageFailedPhrase(MessageFailedPhrase.CONSUMER);
+                    entity.setMessageFailedPhase(MessageFailedPhase.CONSUMER);
                     entity.setFailedReason(cloneFailedConsumedReason.get(item.getMessageId()));
                     try {
                         entity.setMessageContentJsonFormat(objectMapper.writeValueAsString(item));

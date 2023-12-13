@@ -37,12 +37,12 @@ public class ReProduceFailedMessageTask implements Runnable {
             if (messageFailedEntity.getMessageType().equals(MessageType.EMAIL)) {
                 ObjectMapper mapper = new ObjectMapper();
                 UserDTO userDTO = mapper.readValue(messageFailedEntity.getMessageContentJsonFormat(), UserDTO.class);
-                messageFailedProducer.sendMessage(userDTO, messageFailedEntity.getMessageFailedPhrase());
+                messageFailedProducer.sendMessage(userDTO, messageFailedEntity.getMessageFailedPhase());
             }
             if (messageFailedEntity.getMessageType().equals(MessageType.EMAIL_CALLBACK)) {
                 ObjectMapper mapper = new ObjectMapper();
                 CallbackMetaData callbackMetaData = mapper.readValue(messageFailedEntity.getMessageContentJsonFormat(), CallbackMetaData.class);
-                callbackProducer.sendCallbackMessage(callbackMetaData, messageFailedEntity.getMessageFailedPhrase());
+                callbackProducer.sendCallbackMessage(callbackMetaData, messageFailedEntity.getMessageFailedPhase());
             }
         }
     }
