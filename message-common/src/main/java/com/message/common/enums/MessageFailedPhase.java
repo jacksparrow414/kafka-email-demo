@@ -4,7 +4,7 @@ package com.message.common.enums;
  * @author jacksparrow414
  * @date 2023/11/10
  */
-public enum MessageFailedPhrase {
+public enum MessageFailedPhase {
     
     /**
      * 表示在生产者发送消息的时候失败

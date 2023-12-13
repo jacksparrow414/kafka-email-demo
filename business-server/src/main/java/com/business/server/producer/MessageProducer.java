@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.config.KafkaConfiguration;
 import com.message.common.dto.UserDTO;
 import com.message.common.entity.MessageFailedEntity;
-import com.message.common.enums.MessageFailedPhrase;
+import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageFailedService;
 import java.util.Objects;
@@ -45,7 +45,7 @@ public class MessageProducer {
                         log.severe("message content json format failed");
                     }
                     messageFailedEntity.setMessageType(MessageType.EMAIL);
-                    messageFailedEntity.setMessageFailedPhrase(MessageFailedPhrase.PRODUCER);
+                    messageFailedEntity.setMessageFailedPhase(MessageFailedPhase.PRODUCER);
                     messageFailedEntity.setFailedReason(e.getMessage());
                     // 如果sendMessage传进来的是个list，也同理，不能放到list.foreach外面
                     // 如果放在主线程里，由于kafka producer是异步的，
