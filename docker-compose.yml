@@ -6,6 +6,7 @@ services:
     ports:
       - "9092:9092"
       - "9093:9093"
+      - "9998:9998"
     volumes:
       - type: volume
         source: kafka_standalone_data
@@ -23,6 +24,8 @@ services:
       - KAFKA_CFG_NODE_ID=1
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@127.0.0.1:9094
       - ALLOW_PLAINTEXT_LISTENER=yes
+      - JMX_PORT=9998
+      - KAFKA_JMX_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka -Dcom.sun.management.jmxremote.rmi.port=9998
   kafka-ui:
     container_name: kafka-ui
     image: provectuslabs/kafka-ui:latest
@@ -33,6 +36,7 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: kafka-stand-alone
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9998
       SERVER_SERVLET_CONTEXT_PATH: /kafkaui
       AUTH_TYPE: "LOGIN_FORM"
       SPRING_SECURITY_USER_NAME: admin
