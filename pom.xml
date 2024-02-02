@@ -119,6 +119,20 @@
 
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>kafka-all</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>message-common</module>
+                <module>message-server</module>
+                <module>business-server</module>
+            </modules>
+        </profile>
+    </profiles>
+
     <build>
         <finalName>kafka</finalName>
         <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
