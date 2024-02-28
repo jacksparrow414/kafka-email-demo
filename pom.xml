@@ -8,8 +8,6 @@
     <artifactId>kafka</artifactId>
     <version>1.0-SNAPSHOT</version>
     <modules>
-        <module>business-server</module>
-        <module>message-server</module>
         <module>message-common</module>
     </modules>
     <packaging>pom</packaging>
@@ -126,7 +124,6 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <modules>
-                <module>message-common</module>
                 <module>message-server</module>
                 <module>business-server</module>
             </modules>
