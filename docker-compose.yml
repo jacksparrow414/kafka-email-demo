@@ -7,11 +7,20 @@ services:
       - "9092:9092"
       - "9093:9093"
       - "9998:9998"
+      - "9095:9095"
     volumes:
       - type: volume
         source: kafka_standalone_data
         target: /bitnami/kafka
         read_only: false
+      - type: bind
+        source: ./jmx_prometheus_javaagent-1.0.1.jar
+        target: /opt/bitnami/kafka/config/jmx_prometheus_javaagent-1.0.1.jar
+        read_only: true
+      - type: bind
+        source: ./kafka-kraft-3_0_0.yml
+        target: /opt/bitnami/kafka/config/kafka-kraft-3_0_0.yml
+        read_only: true
     environment:
       - BITNAMI_DEBUG=yes
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
@@ -26,6 +35,8 @@ services:
       - ALLOW_PLAINTEXT_LISTENER=yes
       - JMX_PORT=9998
       - KAFKA_JMX_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka -Dcom.sun.management.jmxremote.rmi.port=9998
+      # 集成Prometheus JMX Exporter
+      - KAFKA_OPTS=-javaagent:/opt/bitnami/kafka/config/jmx_prometheus_javaagent-1.0.1.jar=9095:/opt/bitnami/kafka/config/kafka-kraft-3_0_0.yml
   kafka-ui:
     container_name: kafka-ui
     image: provectuslabs/kafka-ui:latest
