@@ -84,10 +84,14 @@ public class KafkaConfiguration {
      * 以下配置建议搭配 官方文档 + kafka权威指南相关章节 + 实际业务场景需求 自己调整
      * https://kafka.apache.org/26/documentation/#group.instance.id
      *
+     * latest vs earliest + dynamic member的区别?
+     * 当消费者组之前没消费过此topic时，是从头消费还是从新消息消费；如果消费者组此前已经消费过此topic，有offset了，那么二者没有什么区别
+     * dynamic member意味着每次重启程序，kafak服务器任务该消费者是新的而不是已经关联过的了
+     *
      * 为什么需要group.instance.id?
      * 假设auto.offset.reset=latest
-     * 1. 如果没有group.instance.id，那么kafka会认为此消费者是dynamic member，在重启期间如果有消息发送到topic，那么重启之后，消费者会【丢失这部分消息】
-     * 加入auto.offset.reset=earliest
+     * 1. 如果没有group.instance.id，那么kafka会认为此消费者是dynamic member(意味着此消费者每次都是最新的，没和topic关联过)，在重启期间如果有消息发送到topic，那么重启之后，消费者会【丢失这部分消息】
+     * 假设auto.offset.reset=earliest
      * 1. 如果没有group.instance.id，那么kafka会认为此消费者是dynamic member，在重启期间如果有消息发送到topic，那么重启之后，消费者会重复消费【全部消息】
      *
      * 光有group.instance.id还不够，还需要修改heartbeat.interval.ms和session.timeout.ms的值为合理的值
