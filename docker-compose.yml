@@ -23,6 +23,7 @@ services:
         read_only: true
     environment:
       - BITNAMI_DEBUG=yes
+      - KAFKA_HEAP_OPTS=-Xmx2048m -Xms2048m
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_CFG_LISTENERS=CONTROLLER://:9094,BROKER://:9092,EXTERNAL://:9093
@@ -37,6 +38,13 @@ services:
       - KAFKA_JMX_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka -Dcom.sun.management.jmxremote.rmi.port=9998
       # 集成Prometheus JMX Exporter
       - KAFKA_OPTS=-javaagent:/opt/bitnami/kafka/config/jmx_prometheus_javaagent-1.0.1.jar=9095:/opt/bitnami/kafka/config/kafka-kraft-3_0_0.yml
+    # 限制容器整体使用4G内存
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    # 如果不够，可使用swap
+    memswap_limit: -1
   kafka-ui:
     container_name: kafka-ui
     image: provectuslabs/kafka-ui:latest
