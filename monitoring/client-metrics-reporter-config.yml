@@ -1,0 +1,7 @@
+exporter:
+  mode: 'HTTP'
+  endpoint: 'http://otel-collector:4318/v1/metrics'
+  timeout: 10
+metadata:
+  nodeId: '1'
+  env: 'local-demo'

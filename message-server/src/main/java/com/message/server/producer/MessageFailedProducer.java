@@ -29,15 +29,16 @@ public class MessageFailedProducer {
     private MessageFailedService messageFailedService = new MessageFailedService();
     
     public void sendMessage(final UserDTO userDTO, MessageFailedPhase messageFailedPhase) {
-        ProducerRecord<String, UserDTO> user = new ProducerRecord<>("user", userDTO.getUserName(),  userDTO);
+        // key使用messageId, 和首次生产保持一致, 保证同一个消息无论重试多少次都会发送到同一分区
+        ProducerRecord<String, UserDTO> user = new ProducerRecord<>("email", userDTO.getMessageId(),  userDTO);
         try {
             PRODUCER.send( user, (recordMetadata, e) -> {
                 if (Objects.nonNull(e)) {
                     log.finest("message has resent failed");
-                    saveOrUpdateFailedMessage(userDTO, 0, messageFailedPhase);
+                    saveOrUpdateFailedMessage(userDTO, messageFailedPhase);
                 }else {
                     log.info("message has resent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
-                    saveOrUpdateFailedMessage(userDTO, 1, messageFailedPhase);
+                    messageFailedService.markRetrySuccessIfExists(userDTO.getMessageId(), messageFailedPhase);
                 }
             });
         }catch (TimeoutException e) {
@@ -45,16 +46,16 @@ public class MessageFailedProducer {
             // TODO: 自定义逻辑，比如发邮件通知kafka管理员
         }
     }
-    
+
     @SneakyThrows
-    private void saveOrUpdateFailedMessage(final UserDTO userDTO, Integer retryStatus, MessageFailedPhase messageFailedPhase) {
+    private void saveOrUpdateFailedMessage(final UserDTO userDTO, MessageFailedPhase messageFailedPhase) {
         MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
         messageFailedEntity.setMessageId(userDTO.getMessageId());
         ObjectMapper mapper = new ObjectMapper();
         messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(userDTO));
         messageFailedEntity.setMessageType(MessageType.EMAIL);
         messageFailedEntity.setMessageFailedPhase(messageFailedPhase);
-        messageFailedEntity.setRetryStatus(retryStatus);
+        messageFailedEntity.setRetryStatus(0);
         messageFailedService.saveOrUpdateMessageFailed(messageFailedEntity);
     }
 }

@@ -1,55 +1,62 @@
-version: "3"
 services:
   kafka:
-    image: 'bitnami/kafka:latest'
+    image: apache/kafka:4.2.1
     container_name: kafka
     ports:
       - "9092:9092"
       - "9093:9093"
-      - "9998:9998"
       - "9095:9095"
     volumes:
       - type: volume
-        source: kafka_standalone_data
-        target: /bitnami/kafka
+        source: kafka_data
+        target: /var/lib/kafka/data
         read_only: false
       - type: bind
-        source: ./jmx_prometheus_javaagent-1.0.1.jar
-        target: /opt/bitnami/kafka/config/jmx_prometheus_javaagent-1.0.1.jar
+        source: ./jmx_prometheus_javaagent-1.6.0.jar
+        target: /mnt/shared/jmx/jmx_prometheus_javaagent-1.6.0.jar
         read_only: true
       - type: bind
         source: ./kafka-kraft-3_0_0.yml
-        target: /opt/bitnami/kafka/config/kafka-kraft-3_0_0.yml
+        target: /mnt/shared/jmx/kafka-jmx-exporter.yml
+        read_only: true
+      - type: bind
+        source: ./monitoring/client-metrics-reporter.jar
+        target: /opt/kafka/libs/client-metrics-reporter.jar
+        read_only: true
+      - type: bind
+        source: ./monitoring/client-metrics-reporter-config.yml
+        target: /mnt/shared/config/client-metrics-reporter-config.yml
         read_only: true
     environment:
-      - BITNAMI_DEBUG=yes
       - KAFKA_HEAP_OPTS=-Xmx2048m -Xms2048m
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENERS=CONTROLLER://:9094,BROKER://:9092,EXTERNAL://:9093
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,EXTERNAL:PLAINTEXT
-      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka:9092,EXTERNAL://192.168.0.102:9093
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=BROKER
-      - KAFKA_BROKER_ID=1
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@127.0.0.1:9094
-      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_NODE_ID=1
+      - KAFKA_PROCESS_ROLES=broker,controller
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENERS=CONTROLLER://:9094,BROKER://:9092,EXTERNAL://:9093
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_ADVERTISED_LISTENERS=BROKER://kafka:9092,EXTERNAL://localhost:9093
+      - KAFKA_INTER_BROKER_LISTENER_NAME=BROKER
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9094
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_LOG_DIRS=/var/lib/kafka/data
+      # KIP-714: 注册客户端指标reporter插件, 将客户端遥测指标转发到otel-collector
+      - KAFKA_METRIC_REPORTERS=com.instaclustr.kafka.KafkaClientMetricsReporter
+      - KAFKA_CLIENT_METRICS_CONFIG_PATH=/mnt/shared/config/client-metrics-reporter-config.yml
+      # JMX remote，供 kafka-ui 抓取基础指标（容器网络内）
       - JMX_PORT=9998
       - KAFKA_JMX_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka -Dcom.sun.management.jmxremote.rmi.port=9998
-      # 集成Prometheus JMX Exporter
-      - KAFKA_OPTS=-javaagent:/opt/bitnami/kafka/config/jmx_prometheus_javaagent-1.0.1.jar=9095:/opt/bitnami/kafka/config/kafka-kraft-3_0_0.yml
+      # 集成Prometheus JMX Exporter 1.6.0
+      - KAFKA_OPTS=-javaagent:/mnt/shared/jmx/jmx_prometheus_javaagent-1.6.0.jar=9095:/mnt/shared/jmx/kafka-jmx-exporter.yml
     # 限制容器整体使用4G内存
     deploy:
       resources:
         limits:
           memory: 4G
-    # 如果不够，可使用swap
-    memswap_limit: -1
   kafka-ui:
     container_name: kafka-ui
-    image: provectuslabs/kafka-ui:latest
+    image: ghcr.io/kafbat/kafka-ui:latest
     ports:
-      - "9095:8080"
+      - "9080:8080"
     depends_on:
       - kafka
     environment:
@@ -63,19 +70,73 @@ services:
       DYNAMIC_CONFIG_ENABLED: 'true'
   redis:
     container_name: redis
-    image: "bitnami/redis:latest"
+    image: bitnami/redis:latest
     ports:
       - "6379:6379"
     volumes:
       - type: volume
-        source: redis_standalone_data
+        source: redis_data
         target: /bitnami/redis/data
         read_only: false
     environment:
       - REDIS_PASSWORD=password123
       - REDIS_AOF_ENABLED=no
+  otel-collector:
+    container_name: otel-collector
+    image: otel/opentelemetry-collector-contrib:0.155.0
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - type: bind
+        source: ./monitoring/otel-collector-config.yml
+        target: /etc/otel-collector-config.yml
+        read_only: true
+    depends_on:
+      - kafka
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - type: bind
+        source: ./monitoring/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+      - type: volume
+        source: prometheus_data
+        target: /prometheus
+        read_only: false
+    depends_on:
+      - otel-collector
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:13.0.1
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - type: bind
+        source: ./monitoring/grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+      - type: bind
+        source: ./monitoring/grafana/dashboards
+        target: /var/lib/grafana/dashboards
+        read_only: true
+      - type: volume
+        source: grafana_data
+        target: /var/lib/grafana
+        read_only: false
+    depends_on:
+      - prometheus
 volumes:
-  kafka_standalone_data:
+  kafka_data:
     driver: local
-  redis_standalone_data:
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local

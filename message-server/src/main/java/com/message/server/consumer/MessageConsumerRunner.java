@@ -83,7 +83,7 @@ public class MessageConsumerRunner implements Runnable {
                 // get message from kafka
                 ConsumerRecords<String, UserDTO> records = consumer.poll(Duration.ofSeconds(consumerPollIntervalSecond));
                 if (records.isEmpty()) {
-                    return;
+                    continue;
                 }
                 Set<UserDTO> successConsumed = new HashSet<>();
                 Set<UserDTO> failedConsumed = new HashSet<>();
@@ -159,7 +159,7 @@ public class MessageConsumerRunner implements Runnable {
         new Thread( () -> {
             if (!cloneSuccessConsumed.isEmpty()) {
                 messageAckConsumesSuccessService.insertMessageIds(cloneSuccessConsumed.stream().map(UserDTO::getMessageId).collect(Collectors.toSet()));
-                cloneFailedConsumed.forEach(item -> {
+                cloneSuccessConsumed.forEach(item -> {
                     if (Objects.nonNull(item.getCallbackMetaData())) {
                         // do callback
                         CallbackProducer callbackProducer = new CallbackProducer();

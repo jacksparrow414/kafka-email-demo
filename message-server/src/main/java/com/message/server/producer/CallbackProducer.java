@@ -8,9 +8,7 @@ import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageFailedService;
 import java.net.InetAddress;
-import java.util.HashSet;
 import java.util.Objects;
-import java.util.Set;
 import lombok.SneakyThrows;
 import lombok.extern.java.Log;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -43,17 +41,13 @@ public class CallbackProducer {
         ProducerRecord<String, CallbackMetaData> callbackRecord = new ProducerRecord<>("callback" + hostName, callbackMetaData.getMessageId(),  callbackMetaData);
         try {
             CALLBACK_META_DATA_PRODUCER.send( callbackRecord, (recordMetadata, e) -> {
-                Set<String> messageFailedSet = new HashSet<>();
                 if (Objects.nonNull(e)) {
-                    log.finest("message has sent failed");
-                    // 应该只保存一次，不应该每次都保存
-                    if (messageFailedSet.isEmpty()) {
-                        saveOrUpdateFailedMessage(callbackMetaData, messageFailedPhase);
-                        messageFailedSet.add(callbackMetaData.getMessageId());
-                    }
-                }else {
-                    log.info("message has sent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
+                    log.severe("callback message has sent failed");
                     saveOrUpdateFailedMessage(callbackMetaData, messageFailedPhase);
+                }else {
+                    log.info("callback message has sent to topic: " + recordMetadata.topic() + ", partition: " + recordMetadata.partition() );
+                    // 发送成功时, 只有已存在失败记录(即本次是重试成功)才更新状态, 首次发送成功不需要任何记录
+                    messageFailedService.markRetrySuccessIfExists(callbackMetaData.getMessageId(), messageFailedPhase);
                 }
             });
         } catch (TimeoutException e) {

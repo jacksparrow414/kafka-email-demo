@@ -1,0 +1,126 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "KIP-714 客户端遥测: 生产者每秒发送的消息数",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [ { "expr": "sum by (clientId) (org_apache_kafka_producer_record_send_rate)", "legendFormat": "{{clientId}}", "refId": "A" } ],
+      "title": "Producer Record Send Rate (msg/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "KIP-714 客户端遥测: 生产者每秒发送失败的消息数",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [ { "expr": "sum by (clientId) (org_apache_kafka_producer_record_error_rate)", "legendFormat": "{{clientId}}", "refId": "A" } ],
+      "title": "Producer Record Error Rate (err/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "KIP-714 客户端遥测: 生产者请求延迟",
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "expr": "max by (clientId) (org_apache_kafka_producer_request_latency_avg)", "legendFormat": "avg {{clientId}}", "refId": "A" },
+        { "expr": "max by (clientId) (org_apache_kafka_producer_request_latency_max)", "legendFormat": "max {{clientId}}", "refId": "B" }
+      ],
+      "title": "Producer Request Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "KIP-714 客户端遥测: 消费者每秒拉取次数",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [ { "expr": "sum by (clientId) (org_apache_kafka_consumer_fetch_manager_fetch_rate)", "legendFormat": "{{clientId}}", "refId": "A" } ],
+      "title": "Consumer Fetch Rate (fetch/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "KIP-714 客户端遥测: 消费者最大落后消息数",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [ { "expr": "max by (clientId) (org_apache_kafka_consumer_fetch_manager_records_lag_max)", "legendFormat": "{{clientId}}", "refId": "A" } ],
+      "title": "Consumer Records Lag Max",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "KIP-714 客户端遥测: 消费者offset提交延迟与失败rebalance总数",
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "id": 6,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "expr": "avg by (clientId) (org_apache_kafka_consumer_coordinator_commit_latency_avg)", "legendFormat": "commit-latency-avg {{clientId}}", "refId": "A" },
+        { "expr": "sum(org_apache_kafka_consumer_coordinator_failed_rebalance_total)", "legendFormat": "failed-rebalance-total", "refId": "B" }
+      ],
+      "title": "Consumer Commit Latency / Failed Rebalance",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "broker JMX: 每秒写入的消息数",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "id": 7,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [ { "expr": "sum(rate(kafka_server_brokertopicmetrics_messagesin_total[1m]))", "legendFormat": "messages-in/s", "refId": "A" } ],
+      "title": "Broker Messages In",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "broker JMX: 每秒读写字节数",
+      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "id": 8,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "expr": "sum(rate(kafka_server_brokertopicmetrics_bytesin_total[1m]))", "legendFormat": "bytes-in/s", "refId": "A" },
+        { "expr": "sum(rate(kafka_server_brokertopicmetrics_bytesout_total[1m]))", "legendFormat": "bytes-out/s", "refId": "B" }
+      ],
+      "title": "Broker Bytes In/Out",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "description": "broker JMX: 请求处理线程平均空闲率, 越低说明broker越繁忙",
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "id": 9,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [ { "expr": "kafka_server_kafkarequesthandlerpool_brokerrequesthandleravgidle_percent", "legendFormat": "avg-idle", "refId": "A" } ],
+      "title": "Broker Request Handler Avg Idle",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["kafka", "kip-714"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "browser",
+  "title": "Kafka 客户端遥测(KIP-714) + Broker 总览",
+  "uid": "kafka-kip714-overview",
+  "version": 1
+}

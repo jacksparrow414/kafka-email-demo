@@ -9,6 +9,8 @@
     <version>1.0-SNAPSHOT</version>
     <modules>
         <module>message-common</module>
+        <module>message-server</module>
+        <module>business-server</module>
     </modules>
     <packaging>pom</packaging>
 
@@ -28,7 +30,7 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>3.5.0</version>
+            <version>4.2.1</version>
         </dependency>
 
         <dependency>
@@ -116,19 +118,6 @@
 
 
     </dependencies>
-
-    <profiles>
-        <profile>
-            <id>kafka-all</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-            <modules>
-                <module>message-server</module>
-                <module>business-server</module>
-            </modules>
-        </profile>
-    </profiles>
 
     <build>
         <finalName>kafka</finalName>

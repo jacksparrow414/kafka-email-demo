@@ -16,6 +16,7 @@ public class ScheduleTaskListener implements ServletContextListener {
     public void contextInitialized(final ServletContextEvent sce) {
         ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(1);
         ReProduceFailedMessageTask reProduceFailedMessageTask = new ReProduceFailedMessageTask();
-        scheduledThreadPoolExecutor.schedule(reProduceFailedMessageTask, 10, TimeUnit.MINUTES);
+        // 首次延迟1分钟执行(等待应用初始化完成), 之后每10分钟执行一次, 周期性地重试失败的消息
+        scheduledThreadPoolExecutor.scheduleWithFixedDelay(reProduceFailedMessageTask, 1, 10, TimeUnit.MINUTES);
     }
 }

@@ -38,6 +38,15 @@ public class KafkaConfiguration {
     private static final AtomicInteger CONSUMER_CLIENT_ID_SEQUENCE = new AtomicInteger(1);
 
     /**
+     * Kafka集群地址, 可通过系统属性或环境变量 KAFKA_BOOTSTRAP_SERVERS 覆盖, 默认 localhost:9093
+     * 对应docker-compose.yml中EXTERNAL监听器的advertised地址
+     */
+    private static String bootstrapServers() {
+        return System.getProperty("KAFKA_BOOTSTRAP_SERVERS",
+            System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "localhost:9093"));
+    }
+
+    /**
      * 使用当前服务器的hostname作为SERVER_ID
      * 更好的做法是: 当前服务器的hostname + contextPath
      * 因为一个Tomcat服务器上可能部署了多个应用，这样可以区分开
@@ -64,7 +73,7 @@ public class KafkaConfiguration {
      */
     public static Properties loadProducerConfig() {
         Properties result = new Properties();
-        result.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "192.168.0.102:9093");
+        result.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
         // 建议设置client.id
         result.put(ProducerConfig.CLIENT_ID_CONFIG, SERVER_ID);
         result.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
@@ -103,14 +112,24 @@ public class KafkaConfiguration {
      * @param groupInstanceId
      */
     public static Properties loadConsumerConfig(int groupInstanceId, String valueType) {
+        return loadConsumerConfig(groupInstanceId, valueType, "test");
+    }
+
+    /**
+     * @param groupInstanceId 消费者组实例序号
+     * @param valueType 消息反序列化的目标类型
+     * @param groupId 消费者组id, 不同的业务消费者必须使用不同的groupId,
+     *                否则相同的group.instance.id注册到同一个消费者组会抛出FencedInstanceIdException
+     */
+    public static Properties loadConsumerConfig(int groupInstanceId, String valueType, String groupId) {
         Properties result = new Properties();
-        result.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "192.168.0.102:9093");
+        result.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
         result.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         result.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaJsonDeserializer.class.getName());
         result.put(KafkaJsonDeserializerConfig.JSON_VALUE_TYPE, valueType);
-        result.put(ConsumerConfig.GROUP_ID_CONFIG, "test");
+        result.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         // 代表此消费者是消费者组的static member
-        result.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, "test-" + ++groupInstanceId);
+        result.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, groupId + "-" + ++groupInstanceId);
         // 建议设置client.id
         result.put(ConsumerConfig.CLIENT_ID_CONFIG, SERVER_ID + "-" + CONSUMER_CLIENT_ID_SEQUENCE.getAndIncrement());
         // 修改heartbeat.interval.ms和session.timeout.ms的值，和group.instance.id配合使用，避免重启或重启时间过长的时候，触发rebalance
