@@ -1,0 +1,43 @@
+{
+  "type": "record",
+  "name": "CallbackMetaData",
+  "namespace": "com.message.common.dto",
+  "doc": "回调消息元数据, 消息系统消费email消息成功后, 通过此消息回调业务系统",
+  "fields": [
+    {
+      "name": "messageId",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "serverId",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "业务服务器的hostname, InetAddress.getLocalHost().getHostName()"
+    },
+    {
+      "name": "className",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "回调目标类的全限定名"
+    },
+    {
+      "name": "instanceJsonStr",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "className对应实例的JSON字符串, 由Jackson序列化生成"
+    },
+    {
+      "name": "methodName",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "回调目标方法名"
+    },
+    {
+      "name": "arguments",
+      "type": {"type": "array", "items": "string"},
+      "default": [],
+      "doc": "回调方法参数列表, Avro不支持任意类型, 每个元素是一个参数经Jackson序列化后的JSON字符串"
+    }
+  ]
+}

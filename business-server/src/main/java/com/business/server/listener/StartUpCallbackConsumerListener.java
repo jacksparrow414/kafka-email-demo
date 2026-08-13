@@ -28,7 +28,7 @@ public class StartUpCallbackConsumerListener implements ServletContextListener {
     public void contextInitialized(final ServletContextEvent sce) {
         ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(10, 10, 30L, TimeUnit.SECONDS, new LinkedBlockingDeque<>(100), new AbortPolicy());
         for (int i = 0; i < 1; i++) {
-            KafkaConsumer<String, CallbackMetaData> consumer = new KafkaConsumer<>(KafkaConfiguration.loadConsumerConfig(i, CallbackMetaData.class.getName(), "callback"));
+            KafkaConsumer<String, CallbackMetaData> consumer = new KafkaConsumer<>(KafkaConfiguration.loadConsumerConfig(i, "callback"));
             CallbackConsumerRunner callbackConsumerRunner = new CallbackConsumerRunner(consumer, 10);
             // 使用另外一个线程来关闭消费者
             Thread shutdownHooks = new Thread(callbackConsumerRunner::shutdown);

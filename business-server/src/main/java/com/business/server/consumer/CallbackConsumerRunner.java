@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.dto.CallbackMetaData;
 import com.message.common.service.MessageAckConsumesSuccessService;
 import com.message.common.service.MessageFailedService;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.java.Log;
 import org.apache.commons.lang3.reflect.MethodUtils;
@@ -65,7 +67,7 @@ public class CallbackConsumerRunner implements Runnable{
                     //        核心消费代码, 通过反射调用目标方法
                     destClass = Class.forName(each.value().getClassName());
                     Object instance = objectMapper.readValue(each.value().getInstanceJsonStr(), destClass);
-                    MethodUtils.invokeMethod(instance, true, each.value().getMethodName(), each.value().getArguments());
+                    MethodUtils.invokeMethod(instance, true, each.value().getMethodName(), parseArguments(each.value()));
                     log.info("callback message consumed, messageId: " + each.value().getMessageId());
                 } catch (Exception e) {
                     log.severe("failed to consume callback message: " + e);
@@ -74,6 +76,19 @@ public class CallbackConsumerRunner implements Runnable{
         }
     }
     
+    /**
+     * arguments中的每个元素是一个参数经Jackson序列化后的JSON字符串, 这里逐个解析回Object
+     */
+    private static Object[] parseArguments(CallbackMetaData callbackMetaData) throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        List<String> arguments = callbackMetaData.getArguments();
+        Object[] result = new Object[arguments.size()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = objectMapper.readValue(arguments.get(i), Object.class);
+        }
+        return result;
+    }
+
     public void shutdown() {
         log.info( Thread.currentThread().getName() + " shutdown kafka consumer");
         closed.set(true);

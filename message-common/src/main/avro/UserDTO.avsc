@@ -1,0 +1,30 @@
+{
+  "type": "record",
+  "name": "UserDTO",
+  "namespace": "com.message.common.dto",
+  "doc": "email消息体, 业务系统生产, 消息系统消费",
+  "fields": [
+    {
+      "name": "messageId",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "消息唯一id, 同时作为kafka消息的key, 保证同一消息进入同一分区"
+    },
+    {
+      "name": "userName",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "password",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "callbackMetaData",
+      "type": ["null", "com.message.common.dto.CallbackMetaData"],
+      "default": null,
+      "doc": "消费成功后的回调元数据, 可选"
+    }
+  ]
+}

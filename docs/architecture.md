@@ -4,11 +4,11 @@
 
 ## 1. 设计目标与思想
 
-把"发邮件"从业务系统解耦：业务系统不直接发邮件、不 RPC 调用邮件系统，而是把**组装好的完整数据 + 模板**序列化为 JSON 投递到 Kafka；邮件系统消费后直接渲染发送。
+把"发邮件"从业务系统解耦：业务系统不直接发邮件、不 RPC 调用邮件系统，而是把**组装好的完整数据 + 模板**序列化后投递到 Kafka；邮件系统消费后直接渲染发送。线上消息格式为 **Avro**，schema 由 **Apicurio Registry**（kafkasql 存储，即 schema 存在 Kafka 中）统一管理。
 
 关键决策（来自博客第二篇）：
 
-- **消息携带全量数据而非 id**：避免邮件系统回查数据库造成压力；避免按场景适配带来的维护与滚动部署兼容问题。消息最终落地为与业务类无关的 JSON（博客中是 Map，demo 中为统一 DTO）
+- **消息携带全量数据而非 id**：避免邮件系统回查数据库造成压力；避免按场景适配带来的维护与滚动部署兼容问题。消息格式由 Apicurio Registry 中的 Avro schema 定义（demo 中为统一 DTO）
 - **消息 key = messageId**：Kafka 按 hash(key) 分区，同一消息无论重试/重投多少次都进同一分区，这是消费端幂等设计的前提
 - **最终一致、消息不丢**：生产失败重试 N 次 → 入库 → 定时任务重投；消费失败重试 N 次 → 入库 → 定时任务重投
 - **可靠性靠副本机制而非刷盘**（官方立场）：acks=all + min.insync.replicas，不设置 log.flush 参数
@@ -20,9 +20,9 @@
 
 | 类 | 说明 |
 |---|---|
-| `KafkaConfiguration` | 生产者/消费者配置工厂。bootstrap 走 `KAFKA_BOOTSTRAP_SERVERS`（默认 localhost:9093）；`SERVER_ID`=hostname 作 client.id 前缀防 `InstanceAlreadyExistsException`。生产者：LZ4、batch.size=10MB、max.request.size=10MB、linger.ms=10（邮件约 20KB/条，默认值会导致逐条发送）。消费者：static member、关闭自动提交、max.partition.fetch.bytes=10MB、fetch.max.bytes=100MB、max.poll.records=500。`loadConsumerConfig(instanceId, valueType, groupId)` 三参版本是后来加的，回调消费必须用独立 groupId |
-| `UserDTO` | email 消息体：messageId/userName/password/callbackMetaData。Jackson + Lombok Builder |
-| `CallbackMetaData` | 回调消息体：messageId/serverId/className/instanceJsonStr/methodName/arguments |
+| `KafkaConfiguration` | 生产者/消费者配置工厂。bootstrap 走 `KAFKA_BOOTSTRAP_SERVERS`（默认 localhost:9093）；registry 走 `APICURIO_REGISTRY_URL`（默认 `http://localhost:8081/apis/registry/v3`）；`SERVER_ID`=hostname 作 client.id 前缀防 `InstanceAlreadyExistsException`。生产者：value 用 Apicurio `AvroKafkaSerializer`、`auto-register=true`（首发消息自动注册 schema，artifactId=`<topic>-value`）、LZ4、batch.size=10MB、max.request.size=10MB、linger.ms=10（邮件约 20KB/条，默认值会导致逐条发送）。消费者：value 用 `AvroKafkaDeserializer` + `use-specific-avro-reader=true`（按 schema 全名还原为生成的 SpecificRecord 类）、static member、关闭自动提交、max.partition.fetch.bytes=10MB、fetch.max.bytes=100MB、max.poll.records=500。`loadConsumerConfig(instanceId, groupId)` 两参版本供回调消费用独立 groupId |
+| `UserDTO` / `CallbackMetaData` | email 消息体 / 回调消息体。**不再手写**：由 `src/main/avro/*.avsc` 经 avro-maven-plugin 生成 SpecificRecord 类（包名类名不变，`UserDTO.newBuilder()...build()`）。`CallbackMetaData.arguments` 原为 `Object[]`，Avro 无法表达任意类型，现为 `List<String>`（每个元素是一个参数的 Jackson JSON 字符串，消费端逐个解析） |
+| `AvroJsonUtil` | Avro SpecificRecord ↔ JSON 字符串互转（Avro 原生 JSON 编码），用于 message_failed 表的落库/读出。注意 union 字段会包装为 `{"string": "v"}` 形式，**与旧 Jackson 格式不兼容** |
 | `MessageFailedEntity` | 失败消息表实体（message_type: EMAIL/EMAIL_CALLBACK；failed_phase: PRODUCER/CONSUMER；retry_count<3、retry_status 0=待重试 1=已成功） |
 | `MessageAckConsumesSuccessEntity` | 幂等表实体，仅 messageId 一列 |
 | `MessageFailedService` | 失败表的 CRUD（真实 JDBC）。`saveOrUpdate`（无则插入，有则 retry_count+1）；`markRetrySuccessIfExists`（重试成功时置 1，无记录则不动） |
@@ -36,7 +36,7 @@
 |---|---|
 | `ProducerServlet` | `/producerMessage?username=&password=` 入口；构造 UserDTO（messageId=UUID）+ 演示用 CallbackMetaData（回调 `EmailSuccessCallback.onSuccess`） |
 | `MessageProducer` | 静态 `KafkaProducer<String, UserDTO>` 发 `email` topic。异步发送 + callback：失败（最后一次重试后才回调）→ 写 message_failed(PRODUCER)；成功仅打日志 |
-| `CallbackConsumerRunner` | 消费 `callback<hostname>`（**与生产端按服务器一一对应**），poll 循环内反射：`Class.forName` → Jackson 还原实例 → `MethodUtils.invokeMethod`。**消费组 = `callback`**（与 email 消费的 `test` 组隔离，否则 static instance.id 冲突被 fence） |
+| `CallbackConsumerRunner` | 消费 `callback<hostname>`（**与生产端按服务器一一对应**），poll 循环内反射：`Class.forName` → Jackson 还原实例 → arguments 逐个 JSON 解析 → `MethodUtils.invokeMethod`。**消费组 = `callback`**（与 email 消费的 `test` 组隔离，否则 static instance.id 冲突被 fence） |
 | `EmailSuccessCallback` | 演示回调目标类，onSuccess() 打日志 |
 | `KafkaListener` | 应用启动注册 producer，销毁时先跑消费者 shutdown hooks 再关 producer |
 | `StartUpCallbackConsumerListener` | Tomcat 启动时拉起回调消费线程（1 个，回调量小） |
@@ -48,7 +48,7 @@
 | `MessageConsumerRunner` | 10 个消费线程（与 email 10 分区对应）消费 `email`。流程：批内+库双重幂等检查 → Failsafe 重试 2 次（间隔 200ms）→ 成功：messageId 入幂等表 + 有 callbackMetaData 则发回调；失败：写 message_failed(CONSUMER)。后置处理在独立线程不阻塞 poll。平时 commitAsync，关闭时 wakeup → commitSync |
 | `CallbackProducer` | 发 `callback<hostname>`；失败写 message_failed；成功仅 `markRetrySuccessIfExists`（首次成功不产生任何记录） |
 | `MessageFailedProducer` | 定时任务重投 email 消息：topic=`email`、key=messageId（与首发一致）；成功 markRetrySuccessIfExists，失败 saveOrUpdate |
-| `ReProduceFailedMessageTask` | 扫 message_failed 中 retry_status=0 且 retry_count<3 的记录，按消息类型分发重投（EMAIL→MessageFailedProducer，EMAIL_CALLBACK→CallbackProducer）。多台部署时应加 Redis 分布式锁（compose 里 redis 的用途） |
+| `ReProduceFailedMessageTask` | 扫 message_failed 中 retry_status=0 且 retry_count<3 的记录，按消息类型分发重投（EMAIL→MessageFailedProducer，EMAIL_CALLBACK→CallbackProducer），消息内容用 `AvroJsonUtil.fromJson` 还原。单条记录解析/发送失败只记日志跳过，不影响其他记录与后续调度。如需多台部署，可引入 Redis 分布式锁保证只有一台执行 |
 | `StartUpConsumerListener` / `ScheduleTaskListener` / `KafkaListener` | 启动 10 消费线程 / 定时任务（**scheduleWithFixedDelay**，首次 1 分钟后每 10 分钟）/ 生命周期管理 |
 
 ## 3. 消息流
@@ -75,14 +75,25 @@ message_ack_consumes_success(message_id PK)   -- 幂等表
 ```
 默认库文件：`~/kafka-message-data/message-db`；可用 `java -cp h2.jar org.h2.tools.Shell -url "jdbc:h2:file:...;AUTO_SERVER=TRUE" -user sa` 查询。
 
-## 5. Topic 清单
+## 5. Schema Registry（Apicurio + Avro）
+
+- 供应商：**Apicurio Registry 3.3.1**；schema 语言：**Avro**；存储：**kafkasql**（schema 以事件日志形式存在 Kafka 的 `kafkasql-journal` topic 中，随 `kafka_data` 卷持久化）
+- 3.x 起 web console 是**独立容器** `apicurio-registry-ui`（浏览器端 SPA），通过 `REGISTRY_API_URL` 指向 API；API 容器需开 `QUARKUS_HTTP_CORS_ORIGINS=*` 供 SPA 跨域调用
+- 消息格式定义在 `message-common/src/main/avro/*.avsc`（唯一事实来源），构建期由 avro-maven-plugin 生成 SpecificRecord 类；`UserDTO.avsc` 引用 `CallbackMetaData.avsc`（imports 引入 + excludes 防重复生成）。test 阶段由 `apicurio-registry-maven-plugin`（register goal + dryRun，不落库）对 registry 中已发布版本执行 BACKWARD 规则校验，不兼容的改动直接构建失败，提前于部署暴露；前提是 registry 已创建全局 BACKWARD 规则（见 docs/deployment.md 步骤2.1），registry 不在时 `-DskipRegister=true` 跳过
+- 线上格式：`magic byte + 4字节contentId + Avro binary`；生产端首发时自动注册（`apicurio.registry.auto-register=true`）；artifact 命名用默认 `TopicIdStrategy`（artifactId=`<topic>-value`，group=default）。kafbat kafka-ui 反序列化分两步（v1.5.0 实测）：主 schema 按消息内嵌 contentId 调 ccompat `/schemas/ids/{id}` 获取（全局查询，不受 group 限制）；引用按 references 里的裸 subject 名（不带 group 前缀）调 `/subjects/{subject}/versions/{n}` 解析，**只命中 default group**——自定义 group 或按 record 命名会导致引用解析失败、消息显示原始字节（实测，见 AGENTS.md 坑位 10；`apicurio.ccompat.group-concat.enabled` 无法解决，开启反而使无前缀 subject 查询 400、subjects 列表变空）。UserDTO 中的嵌套 record 以引用方式指向 `com.message.common.dto.CallbackMetaData` artifact，不产生重复定义
+- artifact/group 删除默认禁用，compose 已开 `APICURIO_REST_DELETION_ARTIFACT_ENABLED=true` 与 `APICURIO_REST_DELETION_GROUP_ENABLED=true`（3.x 中 group 是一等实体，删光 artifact 后空 group 仍在，需单独删）；注意 serde 客户端有本地缓存，删除 artifact 后运行中的应用**不会立刻重建**，重启应用后下次发送才重新注册
+- 消费端按消息中的 contentId 从 registry 拉 schema，`use-specific-avro-reader=true` 直接还原为生成的 DTO 类
+- **message_failed 表的 `message_content_json_format` 不再是 Jackson JSON**，而是 Avro 原生 JSON（`AvroJsonUtil`），union 字段形如 `{"string": "v"}`，只能用 `AvroJsonUtil` 读写
+
+## 6. Topic 清单
 
 | topic | 分区 | 生产者 | 消费者(组) |
 |---|---|---|---|
 | email | 10 | business-server / message-server(重投) | message-server × 10（组 `test`，static member test-1..10） |
 | callback\<hostname\> | 自动创建 | message-server | business-server × 1（组 `callback`） |
+| kafkasql-journal / kafkasql-snapshots / registry-events | 自动创建 | apicurio-registry | apicurio-registry（schema 存储内部 topic，勿动） |
 
-## 6. 已知 demo 简化（非缺陷，按博客意图保留）
+## 7. 已知 demo 简化（非缺陷，按博客意图保留）
 
 - 消费业务逻辑为 no-op（`.get(() -> true)`）；`CallbackConsumerRunner` 的失败持久化博客注明"自己完成"
 - 邮件服务商交互、webhook 不在本仓库范围

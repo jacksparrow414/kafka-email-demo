@@ -1,13 +1,12 @@
 package com.business.server.producer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.config.KafkaConfiguration;
 import com.message.common.dto.UserDTO;
 import com.message.common.entity.MessageFailedEntity;
 import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageFailedService;
+import com.message.common.util.AvroJsonUtil;
 import lombok.extern.java.Log;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -39,12 +38,7 @@ public class MessageProducer {
                     log.severe("message has sent failed");
                     MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
                     messageFailedEntity.setMessageId(userDTO.getMessageId());
-                    ObjectMapper mapper = new ObjectMapper();
-                    try {
-                        messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(userDTO));
-                    } catch (JsonProcessingException jsonProcessingException) {
-                        log.severe("message content json format failed");
-                    }
+                    messageFailedEntity.setMessageContentJsonFormat(AvroJsonUtil.toJson(userDTO));
                     messageFailedEntity.setMessageType(MessageType.EMAIL);
                     messageFailedEntity.setMessageFailedPhase(MessageFailedPhase.PRODUCER);
                     messageFailedEntity.setFailedReason(e.getMessage());

@@ -19,10 +19,90 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
+    <!-- apicurio-registry-maven-plugin 使用的 registry 地址(命令行 -Dapicurio.url=... 覆盖), 与 KafkaConfiguration 默认值保持一致 -->
+    <apicurio.url>http://localhost:8081/apis/registry/v3</apicurio.url>
   </properties>
 
   <build>
     <finalName>message-common</finalName>
+    <plugins>
+      <!-- 根据src/main/avro下的.avsc生成Avro SpecificRecord类(UserDTO/CallbackMetaData) -->
+      <plugin>
+        <groupId>org.apache.avro</groupId>
+        <artifactId>avro-maven-plugin</artifactId>
+        <version>1.12.1</version>
+        <executions>
+          <execution>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>schema</goal>
+            </goals>
+            <configuration>
+              <sourceDirectory>${project.basedir}/src/main/avro</sourceDirectory>
+              <stringType>String</stringType>
+              <!-- UserDTO.avsc引用了CallbackMetaData, 需要先import; 同时exclude掉避免重复生成类 -->
+              <imports>
+                <import>${project.basedir}/src/main/avro/CallbackMetaData.avsc</import>
+              </imports>
+              <excludes>
+                <exclude>**/CallbackMetaData.avsc</exclude>
+              </excludes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- 测试阶段对 schema 做兼容性 dryRun 校验: 以 registry 中已发布版本为准执行 BACKWARD 规则,
+           不兼容的改动直接构建失败, 提前于部署暴露. 前提: registry 已启动且已创建全局 BACKWARD 规则
+           (见 docs/deployment.md). registry 不可用时可用 -DskipRegister=true 跳过 -->
+      <plugin>
+        <groupId>io.apicurio</groupId>
+        <artifactId>apicurio-registry-maven-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>schema-compatibility-check</id>
+            <phase>test</phase>
+            <goals>
+              <goal>register</goal>
+            </goals>
+            <configuration>
+              <registryUrl>${apicurio.url}</registryUrl>
+              <!-- dryRun=true 只校验不落库; 注意插件实现里只有配置了 ifExists 时 dryRun 才会真正生效 -->
+              <dryRun>true</dryRun>
+              <artifacts>
+                <!-- CallbackMetaData 自身演进校验(它在registry中以独立artifact承载版本序列) -->
+                <artifact>
+                  <groupId>default</groupId>
+                  <artifactId>com.message.common.dto.CallbackMetaData</artifactId>
+                  <artifactType>AVRO</artifactType>
+                  <file>${project.basedir}/src/main/avro/CallbackMetaData.avsc</file>
+                  <ifExists>FIND_OR_CREATE_VERSION</ifExists>
+                </artifact>
+                <!-- UserDTO 对应 email-value(TopicIdStrategy命名); 引用不带file, 指向registry中已存在的版本构造引用,
+                     服务端据此解析 UserDTO.avsc 中的具名引用再做兼容性校验.
+                     注意: version 需保持为 registry 中真实存在的版本; CallbackMetaData 演进出新版本后需同步更新此值 -->
+                <artifact>
+                  <groupId>default</groupId>
+                  <artifactId>email-value</artifactId>
+                  <artifactType>AVRO</artifactType>
+                  <file>${project.basedir}/src/main/avro/UserDTO.avsc</file>
+                  <ifExists>FIND_OR_CREATE_VERSION</ifExists>
+                  <references>
+                    <reference>
+                      <!-- name 必须与 UserDTO.avsc 中的具名引用一致 -->
+                      <name>com.message.common.dto.CallbackMetaData</name>
+                      <groupId>default</groupId>
+                      <artifactId>com.message.common.dto.CallbackMetaData</artifactId>
+                      <version>1</version>
+                    </reference>
+                  </references>
+                </artifact>
+              </artifacts>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 
   <dependencies>

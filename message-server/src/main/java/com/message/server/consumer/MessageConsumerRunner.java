@@ -1,13 +1,12 @@
 package com.message.server.consumer;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.dto.UserDTO;
 import com.message.common.entity.MessageFailedEntity;
 import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageAckConsumesSuccessService;
 import com.message.common.service.MessageFailedService;
+import com.message.common.util.AvroJsonUtil;
 import com.message.server.producer.CallbackProducer;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Fallback;
@@ -168,18 +167,13 @@ public class MessageConsumerRunner implements Runnable {
                 });
             }
             if (!cloneFailedConsumed.isEmpty()) {
-                ObjectMapper objectMapper = new ObjectMapper();
                 cloneFailedConsumed.forEach(item -> {
                     MessageFailedEntity entity = new MessageFailedEntity();
                     entity.setMessageId(item.getMessageId());
                     entity.setMessageType(MessageType.EMAIL);
                     entity.setMessageFailedPhase(MessageFailedPhase.CONSUMER);
                     entity.setFailedReason(cloneFailedConsumedReason.get(item.getMessageId()));
-                    try {
-                        entity.setMessageContentJsonFormat(objectMapper.writeValueAsString(item));
-                    } catch (JsonProcessingException e) {
-                        log.info("failed to convert UserDTO message to json string");
-                    }
+                    entity.setMessageContentJsonFormat(AvroJsonUtil.toJson(item));
                     messageFailedService.saveOrUpdateMessageFailed(entity);
                 });
             }

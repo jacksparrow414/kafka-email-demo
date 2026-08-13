@@ -1,8 +1,10 @@
 package com.message.common.config;
 
-import io.confluent.kafka.serializers.KafkaJsonDeserializer;
-import io.confluent.kafka.serializers.KafkaJsonDeserializerConfig;
-import io.confluent.kafka.serializers.KafkaJsonSerializer;
+import io.apicurio.registry.resolver.config.SchemaResolverConfig;
+import io.apicurio.registry.serde.avro.AvroKafkaDeserializer;
+import io.apicurio.registry.serde.avro.AvroKafkaSerializer;
+import io.apicurio.registry.serde.avro.AvroSerdeConfig;
+import io.apicurio.registry.serde.strategy.TopicIdStrategy;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -47,6 +49,15 @@ public class KafkaConfiguration {
     }
 
     /**
+     * Apicurio Registry地址, 可通过系统属性或环境变量 APICURIO_REGISTRY_URL 覆盖,
+     * 默认 http://localhost:8081/apis/registry/v3, 对应docker-compose.yml中apicurio-registry服务的宿主机端口
+     */
+    private static String registryUrl() {
+        return System.getProperty("APICURIO_REGISTRY_URL",
+            System.getenv().getOrDefault("APICURIO_REGISTRY_URL", "http://localhost:8081/apis/registry/v3"));
+    }
+
+    /**
      * 使用当前服务器的hostname作为SERVER_ID
      * 更好的做法是: 当前服务器的hostname + contextPath
      * 因为一个Tomcat服务器上可能部署了多个应用，这样可以区分开
@@ -77,7 +88,16 @@ public class KafkaConfiguration {
         // 建议设置client.id
         result.put(ProducerConfig.CLIENT_ID_CONFIG, SERVER_ID);
         result.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        result.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSerializer.class.getName());
+        // value使用Apicurio提供的Avro序列化器, schema由Apicurio Registry统一管理(存储在kafka的kafkasql-journal topic中)
+        result.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, AvroKafkaSerializer.class.getName());
+        result.put(SchemaResolverConfig.REGISTRY_URL, registryUrl());
+        // 首次发送消息时自动向registry注册schema
+        result.put(SchemaResolverConfig.AUTO_REGISTER_ARTIFACT, Boolean.TRUE.toString());
+        // artifact命名策略: TopicIdStrategy(默认值, 这里显式写出), artifactId=<topic>-value, group=default.
+        // 注意: kafbat kafka-ui反序列化时, 主schema按消息内嵌的contentId调ccompat /schemas/ids/{id}获取(不受group限制),
+        // 但引用(references)按裸subject名(不带group前缀)调 /subjects/{subject}/versions/{n} 解析, 只命中default group;
+        // 自定义group会导致带引用的schema引用解析失败(消息显示原始字节), 因此保持默认. 详见AGENTS.md坑位10
+        result.put(SchemaResolverConfig.ARTIFACT_RESOLVER_STRATEGY, TopicIdStrategy.class.getName());
         result.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, CompressionType.LZ4.name);
         // 每封邮件消息大小大约20KB, 使用默认配置吞吐量不高，下列配置增加kafka的吞吐量
         // 默认16384 bytes，太小了，这会导致邮件消息一个一个发送到kafka，达不到批量发送的目的，不符合发送邮件的场景
@@ -111,22 +131,24 @@ public class KafkaConfiguration {
      * Consumer生成client.id的逻辑见 {@link ConsumerConfig#maybeOverrideClientId(Map)}
      * @param groupInstanceId
      */
-    public static Properties loadConsumerConfig(int groupInstanceId, String valueType) {
-        return loadConsumerConfig(groupInstanceId, valueType, "test");
+    public static Properties loadConsumerConfig(int groupInstanceId) {
+        return loadConsumerConfig(groupInstanceId, "test");
     }
 
     /**
      * @param groupInstanceId 消费者组实例序号
-     * @param valueType 消息反序列化的目标类型
      * @param groupId 消费者组id, 不同的业务消费者必须使用不同的groupId,
      *                否则相同的group.instance.id注册到同一个消费者组会抛出FencedInstanceIdException
      */
-    public static Properties loadConsumerConfig(int groupInstanceId, String valueType, String groupId) {
+    public static Properties loadConsumerConfig(int groupInstanceId, String groupId) {
         Properties result = new Properties();
         result.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
         result.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        result.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, KafkaJsonDeserializer.class.getName());
-        result.put(KafkaJsonDeserializerConfig.JSON_VALUE_TYPE, valueType);
+        // value使用Apicurio提供的Avro反序列化器, 根据消息payload中的schema id从registry获取schema
+        result.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, AvroKafkaDeserializer.class.getName());
+        result.put(SchemaResolverConfig.REGISTRY_URL, registryUrl());
+        // 反序列化为schema对应的SpecificRecord类(即生成的com.message.common.dto.UserDTO/CallbackMetaData), 而不是GenericRecord
+        result.put(AvroSerdeConfig.USE_SPECIFIC_AVRO_READER, Boolean.TRUE.toString());
         result.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         // 代表此消费者是消费者组的static member
         result.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, groupId + "-" + ++groupInstanceId);

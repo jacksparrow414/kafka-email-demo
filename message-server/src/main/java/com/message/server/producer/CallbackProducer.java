@@ -1,12 +1,12 @@
 package com.message.server.producer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.config.KafkaConfiguration;
 import com.message.common.dto.CallbackMetaData;
 import com.message.common.entity.MessageFailedEntity;
 import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageFailedService;
+import com.message.common.util.AvroJsonUtil;
 import java.net.InetAddress;
 import java.util.Objects;
 import lombok.SneakyThrows;
@@ -59,12 +59,10 @@ public class CallbackProducer {
     /**
      * @param callbackMetaData
      */
-    @SneakyThrows
     private void saveOrUpdateFailedMessage(final CallbackMetaData callbackMetaData, MessageFailedPhase messageFailedPhase) {
         MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
         messageFailedEntity.setMessageId(callbackMetaData.getMessageId());
-        ObjectMapper mapper = new ObjectMapper();
-        messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(callbackMetaData));
+        messageFailedEntity.setMessageContentJsonFormat(AvroJsonUtil.toJson(callbackMetaData));
         messageFailedEntity.setMessageType(MessageType.EMAIL_CALLBACK);
         messageFailedEntity.setMessageFailedPhase(messageFailedPhase);
         messageFailedService.saveOrUpdateMessageFailed(messageFailedEntity);

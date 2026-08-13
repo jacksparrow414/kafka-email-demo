@@ -28,7 +28,7 @@ public class StartUpConsumerListener implements ServletContextListener {
     public void contextInitialized(final ServletContextEvent sce) {
         ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(10, 10, 30L, TimeUnit.SECONDS, new LinkedBlockingDeque<>(100), new AbortPolicy());
         for (int i = 0; i < 10; i++) {
-            KafkaConsumer<String, UserDTO> consumer = new KafkaConsumer<>(KafkaConfiguration.loadConsumerConfig(i, UserDTO.class.getName()));
+            KafkaConsumer<String, UserDTO> consumer = new KafkaConsumer<>(KafkaConfiguration.loadConsumerConfig(i));
             MessageConsumerRunner messageConsumerRunner = new MessageConsumerRunner(consumer, 10);
             // 使用另外一个线程来关闭消费者
             Thread shutdownHooks = new Thread(messageConsumerRunner::shutdown);

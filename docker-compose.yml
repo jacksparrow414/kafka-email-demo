@@ -52,6 +52,38 @@ services:
       resources:
         limits:
           memory: 4G
+  apicurio-registry:
+    container_name: apicurio-registry
+    image: apicurio/apicurio-registry:3.3.1
+    ports:
+      # web console与REST API都在8080端口, 映射到宿主机8081避免与Tomcat冲突
+      # web console: http://localhost:8081, REST API: http://localhost:8081/apis/registry/v3
+      - "8081:8080"
+    depends_on:
+      - kafka
+    # 首次启动时若kafkasql topic刚创建完成可能因UnknownTopicOrPartition退出, 自动重启即可恢复
+    restart: on-failure
+    environment:
+      # schema存储到kafka中(kafkasql存储), 数据保存在kafka的kafkasql-journal topic里
+      - APICURIO_STORAGE_KIND=kafkasql
+      - APICURIO_KAFKASQL_BOOTSTRAP_SERVERS=kafka:9092
+      # web console是浏览器端SPA, 会直接跨域调用API, 放开CORS
+      - QUARKUS_HTTP_CORS_ORIGINS=*
+      # 允许通过REST API/web console删除artifact(默认禁用)
+      - APICURIO_REST_DELETION_ARTIFACT_ENABLED=true
+      # 允许删除空group(默认禁用)
+      - APICURIO_REST_DELETION_GROUP_ENABLED=true
+  apicurio-registry-ui:
+    container_name: apicurio-registry-ui
+    image: apicurio/apicurio-registry-ui:3.3.1
+    ports:
+      # web console: http://localhost:8082
+      - "8082:8080"
+    depends_on:
+      - apicurio-registry
+    environment:
+      # SPA在浏览器中运行, 该URL必须是浏览器可达的地址, 即API的宿主机映射地址
+      - REGISTRY_API_URL=http://localhost:8081/apis/registry/v3
   kafka-ui:
     container_name: kafka-ui
     image: ghcr.io/kafbat/kafka-ui:latest
@@ -63,24 +95,15 @@ services:
       KAFKA_CLUSTERS_0_NAME: kafka-stand-alone
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       KAFKA_CLUSTERS_0_METRICS_PORT: 9998
+      # 接入Apicurio Registry(其Confluent兼容端点), 使消息列表能把Avro value反序列化显示
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://apicurio-registry:8080/apis/ccompat/v7
+      # 默认value反序列化器设为SchemaRegistry, 打开消息列表即按Avro解码(否则默认String需手动切换)
+      KAFKA_CLUSTERS_0_DEFAULTVALUESERDE: SchemaRegistry
       SERVER_SERVLET_CONTEXT_PATH: /kafkaui
       AUTH_TYPE: "LOGIN_FORM"
       SPRING_SECURITY_USER_NAME: admin
-      SPRING_SECURITY_USER_PASSWORD: kafkauipassword
+      SPRING_SECURITY_USER_PASSWORD: adb-1234
       DYNAMIC_CONFIG_ENABLED: 'true'
-  redis:
-    container_name: redis
-    image: bitnami/redis:latest
-    ports:
-      - "6379:6379"
-    volumes:
-      - type: volume
-        source: redis_data
-        target: /bitnami/redis/data
-        read_only: false
-    environment:
-      - REDIS_PASSWORD=password123
-      - REDIS_AOF_ENABLED=no
   otel-collector:
     container_name: otel-collector
     image: otel/opentelemetry-collector-contrib:0.155.0
@@ -133,8 +156,6 @@ services:
       - prometheus
 volumes:
   kafka_data:
-    driver: local
-  redis_data:
     driver: local
   prometheus_data:
     driver: local

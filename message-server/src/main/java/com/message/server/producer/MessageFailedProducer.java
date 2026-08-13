@@ -1,14 +1,13 @@
 package com.message.server.producer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.message.common.config.KafkaConfiguration;
 import com.message.common.dto.UserDTO;
 import com.message.common.entity.MessageFailedEntity;
 import com.message.common.enums.MessageFailedPhase;
 import com.message.common.enums.MessageType;
 import com.message.common.service.MessageFailedService;
+import com.message.common.util.AvroJsonUtil;
 import java.util.Objects;
-import lombok.SneakyThrows;
 import lombok.extern.java.Log;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -47,12 +46,10 @@ public class MessageFailedProducer {
         }
     }
 
-    @SneakyThrows
     private void saveOrUpdateFailedMessage(final UserDTO userDTO, MessageFailedPhase messageFailedPhase) {
         MessageFailedEntity messageFailedEntity = new MessageFailedEntity();
         messageFailedEntity.setMessageId(userDTO.getMessageId());
-        ObjectMapper mapper = new ObjectMapper();
-        messageFailedEntity.setMessageContentJsonFormat(mapper.writeValueAsString(userDTO));
+        messageFailedEntity.setMessageContentJsonFormat(AvroJsonUtil.toJson(userDTO));
         messageFailedEntity.setMessageType(MessageType.EMAIL);
         messageFailedEntity.setMessageFailedPhase(messageFailedPhase);
         messageFailedEntity.setRetryStatus(0);

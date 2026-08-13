@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.Collections;
 import java.util.UUID;
 
 /**
@@ -32,11 +33,11 @@ public class ProducerServlet extends HttpServlet {
         String password = req.getParameter("password");
         String messageId = UUID.randomUUID().toString();
         MessageProducer messageProducer = new MessageProducer();
-        messageProducer.sendMessage(UserDTO.builder()
-            .messageId(messageId)
-            .userName(username)
-            .password(password)
-            .callbackMetaData(buildCallbackMetaData(messageId, username))
+        messageProducer.sendMessage(UserDTO.newBuilder()
+            .setMessageId(messageId)
+            .setUserName(username)
+            .setPassword(password)
+            .setCallbackMetaData(buildCallbackMetaData(messageId, username))
             .build());
     }
 
@@ -47,13 +48,14 @@ public class ProducerServlet extends HttpServlet {
         EmailSuccessCallback callback = new EmailSuccessCallback();
         callback.setMessageId(messageId);
         callback.setUserName(username);
-        return CallbackMetaData.builder()
-            .messageId(messageId)
-            .serverId(InetAddress.getLocalHost().getHostName())
-            .className(EmailSuccessCallback.class.getName())
-            .instanceJsonStr(new ObjectMapper().writeValueAsString(callback))
-            .methodName("onSuccess")
-            .arguments(new Object[0])
+        return CallbackMetaData.newBuilder()
+            .setMessageId(messageId)
+            .setServerId(InetAddress.getLocalHost().getHostName())
+            .setClassName(EmailSuccessCallback.class.getName())
+            .setInstanceJsonStr(new ObjectMapper().writeValueAsString(callback))
+            .setMethodName("onSuccess")
+            // Avro不支持任意类型参数, 约定每个元素是一个参数经Jackson序列化后的JSON字符串, 消费端再逐个解析
+            .setArguments(Collections.emptyList())
             .build();
     }
 }
